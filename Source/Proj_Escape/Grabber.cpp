@@ -21,15 +21,27 @@ void UGrabber::BeginPlay()
 	Super::BeginPlay();
 
 	this->LineLength = 100.0f;
-	UE_LOG(LogTemp, Warning, TEXT("Grabber Here~~"));
+	SetupPhysiscHandleComponent();
+	SetupInputComponent();
 }
-
 
 // Called every frame
 void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (this->PhysicsHandle->GrabbedComponent)
+	{
+		FVector tmpLineStartLocation;
+		FVector tmpLineEndLocation;
+		this->GetLineTraceStartEndLocation(tmpLineStartLocation, tmpLineEndLocation);
+
+		this->PhysicsHandle->SetTargetLocation(tmpLineEndLocation);
+	}
+}
+
+void UGrabber::GetLineTraceStartEndLocation(FVector& out_StartLocation, FVector& out_EndLoaction) const
+{
 	FVector tmp_PlayerViewPointLocation;
 	FRotator tmp_PlayerViewPointRotator;
 	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(
@@ -37,12 +49,18 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 		OUT tmp_PlayerViewPointRotator
 	);
 
-	/*UE_LOG(LogTemp, Warning, TEXT("PlayerViewPortLocation:%s, Rotator:%s"), 
-		*tmp_PlayerViewPointLocation.ToString(), 
-		*tmp_PlayerViewPointRotator.ToString()
-	);*/
-
 	FVector tmp_LineTraceEnd = tmp_PlayerViewPointLocation + (tmp_PlayerViewPointRotator.Vector() * this->LineLength);
+
+	out_StartLocation = tmp_PlayerViewPointLocation;
+	out_EndLoaction = tmp_LineTraceEnd;
+}
+
+FHitResult UGrabber::GetFirstPhysicsBodyInReach() const
+{
+	FVector tmp_PlayerViewPointLocation;
+	FVector tmp_LineTraceEnd;
+	this->GetLineTraceStartEndLocation(tmp_PlayerViewPointLocation, tmp_LineTraceEnd);
+	
 	DrawDebugLine(GetWorld(), tmp_PlayerViewPointLocation, tmp_LineTraceEnd, FColor(FColor::Red), false, 0.f, 0.f, 10.f);
 
 	FCollisionQueryParams TraceParamers = FCollisionQueryParams(FName(""), false, GetOwner());
@@ -55,10 +73,57 @@ void UGrabber::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompone
 		TraceParamers
 	);
 
-	AActor* ActorHit = Hit.GetActor();
-	if (ActorHit)
+	return Hit;
+}
+
+void UGrabber::GrabObj()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Grab key PRESSED~"));
+
+	FHitResult tmpHitResult = this->GetFirstPhysicsBodyInReach();
+	AActor* tmpHitActor = tmpHitResult.GetActor();
+	UPrimitiveComponent* tmpHitComponent = tmpHitResult.GetComponent();
+	if (tmpHitActor)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Hit Actor:%s"), *(ActorHit->GetName()));
+		this->PhysicsHandle->GrabComponent(
+			tmpHitComponent,
+			NAME_None,
+			tmpHitActor->GetActorLocation(),
+			true
+		);
 	}
 }
 
+void UGrabber::ReleaseObj()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Grab key RELEASED~"));
+
+	this->PhysicsHandle->ReleaseComponent();
+}
+
+void UGrabber::SetupPhysiscHandleComponent()
+{
+	this->PhysicsHandle = GetOwner()->FindComponentByClass<UPhysicsHandleComponent>();
+	if (!this->PhysicsHandle)
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: PhysicsHandle NOT FOUND!"), *(GetOwner()->GetName()));
+	}
+	else
+	{
+
+	}
+}
+
+void UGrabber::SetupInputComponent()
+{
+	this->InputComponent = GetOwner()->FindComponentByClass<UInputComponent>();
+	if (!this->InputComponent)
+	{
+		UE_LOG(LogTemp, Error, TEXT("%s: InputComponent NOT FOUND!"), *(GetOwner()->GetName()));
+	}
+	else
+	{
+		this->InputComponent->BindAction("Grab", IE_Pressed, this, &UGrabber::GrabObj);
+		this->InputComponent->BindAction("Grab", IE_Released, this, &UGrabber::ReleaseObj);
+	}
+}
