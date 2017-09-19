@@ -26,22 +26,23 @@ protected:
 	virtual void BeginPlay() override;
 
 	void SetupPhysiscHandleComponent();
-
 	void SetupInputComponent();
+	
+	void GrabObj();
+	void ReleaseObj();
+
+	void GetLineTraceStartEndLocation(FVector&, FVector&) const;
+	FHitResult GetFirstPhysicsBodyInReach() const;
 
 public:	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
-	void GetLineTraceStartEndLocation(FVector&, FVector&) const;
 
-	FHitResult GetFirstPhysicsBodyInReach() const;
-
-	void GrabObj();
-	void ReleaseObj();
 
 		
 private:
+	UPROPERTY(EditAnywhere)
 	float LineLength;
 	UPhysicsHandleComponent* PhysicsHandle = nullptr;
 	UInputComponent* InputComponent = nullptr;

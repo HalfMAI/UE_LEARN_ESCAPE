@@ -2,6 +2,7 @@
 
 #include "OpenDoor.h"
 
+#include "TimerManager.h"
 
 // Sets default values for this component's properties
 UOpenDoor::UOpenDoor()
@@ -20,10 +21,20 @@ void UOpenDoor::BeginPlay()
 	Super::BeginPlay();
 
 	this->IsDoorClosed = true;
-	this->LastOpenDoorTime = 999.0f;
+	this->CurrentTriggerMass = 0.f;
+
+	GetWorld()->GetTimerManager().SetTimer(
+		this->OpenDoorCheckTimerHandler,
+		this,
+		&UOpenDoor::PrintMass,
+		1.0f,
+		true
+	);
 
 	this->Owner = GetOwner();
 	this->ActorThatOpens = GetWorld()->GetFirstPlayerController()->GetPawn();
+
+	ensureMsgf(this->PressurePlate, TEXT("PressurePlate NOT FOUND!!"));
 }
 
 void UOpenDoor::OpenDoor()
@@ -34,7 +45,8 @@ void UOpenDoor::OpenDoor()
 	}
 
 	this->IsDoorClosed = false;
-	this->Owner->SetActorRotation(FRotator(0.0f, OpenDoorAngle, 0.0f));
+
+	this->OnOpenDoorEvent.Broadcast();
 }
 
 void UOpenDoor::CloseDoor()
@@ -45,7 +57,32 @@ void UOpenDoor::CloseDoor()
 	}
 
 	this->IsDoorClosed = true;
-	this->Owner->SetActorRotation(FRotator(0.0f, 0.0f, 0.0f));
+	this->OnCloseDoorEvent.Broadcast();
+}
+
+bool UOpenDoor::IsDoorCanOpen()
+{
+	this->CurrentTriggerMass = 0.f;
+	TArray<AActor*> tmpOverlapeActors;
+	this->PressurePlate->GetOverlappingActors(OUT tmpOverlapeActors);
+	for (const auto& tmpActor : tmpOverlapeActors)
+	{
+		this->CurrentTriggerMass += tmpActor->FindComponentByClass<UPrimitiveComponent>()->GetMass();
+	}
+
+	if (this->CurrentTriggerMass >= this->TriggerMass)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+void UOpenDoor::PrintMass()
+{
+	UE_LOG(LogTemp, Warning, TEXT("Current Trigger Mass:%f"), this->CurrentTriggerMass);
 }
 
 
@@ -55,14 +92,11 @@ void UOpenDoor::TickComponent(float DeltaTime, ELevelTick TickType, FActorCompon
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
 	// ...
-	if (this->PressurePlate->IsOverlappingActor(this->ActorThatOpens))
+	if (this->IsDoorCanOpen())
 	{
 		this->OpenDoor();
-
-		this->LastOpenDoorTime = GetWorld()->GetTimeSeconds();
 	}
-
-	if (GetWorld()->GetTimeSeconds() - this->LastOpenDoorTime > this->OpenDoorDelay)
+	else
 	{
 		this->CloseDoor();
 	}

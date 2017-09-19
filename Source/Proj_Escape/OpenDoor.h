@@ -8,11 +8,14 @@
 #include "Engine/TriggerVolume.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
+#include "Components/PrimitiveComponent.h"
 
 #include "OpenDoor.generated.h"
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE( FOnOpenDoorEvent );
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnCloseDoorEvent);
 
-UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+UCLASS(ClassGroup = (Custom), meta = (BlueprintSpawnableComponent))
 class PROJ_ESCAPE_API UOpenDoor : public UActorComponent
 {
 	GENERATED_BODY()
@@ -28,6 +31,9 @@ protected:
 	void OpenDoor();
 	void CloseDoor();
 
+	bool IsDoorCanOpen();
+	void PrintMass();
+
 public:	
 	// Called every frame
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
@@ -37,14 +43,19 @@ private:
 	AActor* Owner;
 	AActor* ActorThatOpens;
 	bool IsDoorClosed = true;
-	float LastOpenDoorTime = 999.0f;
 
-	UPROPERTY(VisibleAnywhere)
-	float OpenDoorAngle = -60.0f;
+	float CurrentTriggerMass = 0.0f;
+	FTimerHandle OpenDoorCheckTimerHandler;
+
 
 	UPROPERTY(EditAnywhere)
 	ATriggerVolume* PressurePlate;
 	
 	UPROPERTY(EditAnywhere)
-	float OpenDoorDelay = 1.0f;
+	float TriggerMass = 50.0f;
+
+	UPROPERTY(BlueprintAssignable)
+	FOnOpenDoorEvent OnOpenDoorEvent;
+	UPROPERTY(BlueprintAssignable)
+	FOnCloseDoorEvent OnCloseDoorEvent;
 };
